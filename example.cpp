@@ -3,6 +3,9 @@
 
 using namespace di_manager;
 
+//
+// Global logging service
+//
 class LoggingService {
 
 public:
@@ -18,8 +21,14 @@ public:
     }
 };
 
+//
+// Request scoped service
+//
 class UserService 
 {
+    //
+    // Injecting global logger
+    //
     [[=Inject{}]]
     LoggingService* logger;
 
@@ -32,16 +41,20 @@ public:
 
 class RequestHandler 
 {
+    //
+    // Injected through contructor
+    //
     UserService& userService_;
 
 public:
-    RequestHandler([[=Inject{}]] UserService& userService)
+    RequestHandler(
+        [[=Inject{}]] UserService& userService
+    )
     : userService_(userService)
     {        
     }
 
 public:
-
     void process()
     {
        userService_.createUser();
@@ -52,7 +65,8 @@ public:
 class Application 
 {
 public:
-    virtual ~Application() {
+    virtual ~Application() 
+    {
         logger->log("~Application");
     }
 
@@ -74,6 +88,9 @@ class WebApplication : public Application
 {
     std::vector<std::string> handlers_;
 
+    //
+    // Scoped transient object. The scope is returned to the caller.
+    //
     [[=Inject{.transient=true}]]
     std::function<Scoped<std::unique_ptr<RequestHandler>>()> getRequestHandler;
 
@@ -103,14 +120,25 @@ protected:
 
 int main()
 {
+    //
+    // Scoped registry configuration.
+    // Enabled policy for parent objects resolution, such as logger.
+    //
     using RequestCfg = DefaultRegistryConfiguration::Extend<
         ResolutionPolicy<ResolutionFallback::TryParent>
     >;
 
+    //
+    // Request classes registry.
+    //
     using RequestRegistry = Registry<RequestCfg>
         ::add<UserService>;
 
-
+    //
+    // Root registry. Fail if try to inject a unknown class.
+    // ResolutionFallback can be configured to allow use of 
+    // unknown classes.
+    //
     using RootCfg = DefaultRegistryConfiguration::Extend<
         ResolutionPolicy<ResolutionFallback::None>
     >;
@@ -119,10 +147,15 @@ int main()
         ::add<Application, WebApplication>
         ::add<RequestHandler, Configuration<NewContainer<RequestRegistry>>>
         ::add<LoggingService>;
+
     using RootContainer = Container<RootRegistry>;
 
     RootContainer root;
     
+    //
+    // Resolve root object and use.
+    // Object lifetime is managed by underlying container.
+    //
     auto* app = root.resolve<Application*>();
     app->handle("/test");
 
