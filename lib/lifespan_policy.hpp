@@ -16,18 +16,6 @@ template<typename Registry>
 struct NewContainer
     : LifespanPolicyTag
 {
-    template<typename C, typename F>
-    static decltype(auto) wrap(C& c, F&& f) 
-    {
-        auto newContainer = std::make_unique<Container<Registry, C>>(&c);
-        // using K = decltype(std::forward<F>(f)(*newContainer));
-        // static_assert(!std::same_as<K, K>);
-        return Scoped(std::forward<F>(f)(*newContainer), std::move(newContainer));
-        
-        //return std::forward<F>(f)(c);
-    }
-
-
     template<
         typename T, 
         typename Impl, 
