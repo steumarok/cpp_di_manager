@@ -1,4 +1,4 @@
-# C++ Dipendency Injection Framwork
+# C++ Dipendency Injection Framework
 
 A policy-based Dependency Injection framework for modern C++.
 
