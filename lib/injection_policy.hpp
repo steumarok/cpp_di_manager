@@ -52,12 +52,6 @@ struct InjectionPolicy : InjectionPolicyTag
     {
         static std::function<T()> inject(auto& c)
         {
-            //if constexpr(Injectable.transient){
-                 //static_assert(!std::same_as<T, T>);
-                //using G = decltype(c.template resolve<T, Injectable.transient>());
-                
-            //}
-
             auto* ptr = &c;
 
             return [ptr]() -> T {

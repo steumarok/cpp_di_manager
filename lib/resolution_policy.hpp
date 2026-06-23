@@ -51,12 +51,12 @@ struct UnknownResolver
     static constexpr T resolve(Container& container)
     {
         using Cfg = typename Registry::MainConfiguration;
-        
+
         using Cast = Cfg::template policy<CastPolicyTag>;
-        using Creation = Cfg::template policy<CreationPolicyTag>;
+        using Creation = Cfg::template policy<UnknownCreationPolicyTag>;
         using Injection = Cfg::template policy<InjectionPolicyTag>;
         using Lifespan = Cfg::template policy<LifespanPolicyTag>;
-        using Impl = T;
+        using Impl = resolved_type_t<T>;
 
         return Lifespan::template wrap<
             T,
@@ -122,14 +122,35 @@ struct ResolutionPolicy
         typename T, 
         bool Transient,
         typename Parent, 
-        typename Registry
+        typename Registry,
+        bool ForceCreation = false
     >
     static constexpr auto resolve()
     {
         using RawT = resolved_type_t<T>;
         using R = FindRegistrationType<RawT, Registry>;
 
-        if constexpr (std::same_as<R, void> && tryParent)
+        if constexpr (ForceCreation)
+        {
+            using Cfg = ConfigurationGroups<
+                config_of_t<R>, 
+                typename Registry::MainConfiguration
+            >;
+
+            if constexpr (std::same_as<R, void>)
+            {
+                return std::type_identity<
+                    UnknownResolver<T, Transient, Registry>
+                >{};
+            }
+            else
+            {       
+                return std::type_identity<
+                    RegisteredResolver<T, Transient, R, Registry>
+                >{};
+            }
+        }
+        else if constexpr (std::same_as<R, void> && tryParent)
         { 
             if constexpr (parentCanResolve<Parent, T>())
             {
@@ -158,8 +179,6 @@ struct ResolutionPolicy
                 typename Registry::MainConfiguration
             >;
 
-            using Cast = Cfg::template policy<CastPolicyTag>;
-
             if constexpr (std::same_as<R, void>)
             {
                 return std::type_identity<
@@ -167,7 +186,7 @@ struct ResolutionPolicy
                 >{};
             }
             else
-            {
+            {       
                 return std::type_identity<
                     RegisteredResolver<T, Transient, R, Registry>
                 >{};

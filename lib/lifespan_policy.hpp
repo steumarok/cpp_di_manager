@@ -12,8 +12,8 @@ class Container;
 template<typename T>
 class Scoped;
 
-template<typename Registry> 
-struct NewContainer
+
+struct CurrentContainer
     : LifespanPolicyTag
 {
     template<
@@ -27,25 +27,48 @@ struct NewContainer
     >
     static T wrap(C& container)
     {
-        auto newContainer = std::make_unique<Container<Registry, C>>(&container);
+        if constexpr (Transient)
+        {
+            return Cast::template cast<T>(
+                Creation::template create<Impl, Injection, Transient>(container)
+            );
+        }
+        else
+        {
+            using H = typename Creation::Holder<Impl>;
 
-        decltype(auto) object = Cast::template cast<T>(
-            Creation::template create<Impl, Injection, Transient>(*newContainer)
-        );
+            auto [it, inserted] = container.getStorageMap().try_emplace(typeid(Impl));
 
-        return Scoped(std::move(object), std::move(newContainer));
+            if (inserted)
+            {
+                it->second = Creation::template create<Impl, Injection, Transient>(container);
+            }
+
+            return Cast::template cast<T>(
+                std::get<H>(it->second)
+            );
+        }
     }
 };
 
-struct CurrentContainer
+template<typename Registry> 
+struct NewContainer
     : LifespanPolicyTag
 {
-    template<typename C, typename F>
-    static decltype(auto) wrap(C& c, F&& f) 
+    template<typename T>
+    struct scoped_inner
     {
-        return std::forward<F>(f)(c);
-    }
+        using type = T;
+    };
 
+    template<typename U>
+    struct scoped_inner<Scoped<U>>
+    {
+        using type = U;
+    };
+
+    template<typename T>
+    using scoped_inner_t = typename scoped_inner<T>::type;
 
     template<
         typename T, 
@@ -54,23 +77,33 @@ struct CurrentContainer
         typename Creation, 
         typename Injection, 
         typename Cast,
-        typename Container
+        typename C,
+        typename InnerT = scoped_inner_t<T>
     >
-    static T wrap(Container& container)
+    static T wrap(C& container) //requires (std::same_as<T, Scoped<Impl>>)
     {
-        using H = typename Creation::Holder<Impl>;
+        auto newContainer = std::make_unique<Container<Registry, C>>(&container);
+        //static_assert(!std::same_as<Impl, Impl>);
+        //decltype(auto) object = Cast::template cast<T>(
+            
+        //);
 
-        auto [it, inserted] = container.getStorageMap().try_emplace(typeid(Impl));
+        auto ptr = newContainer.get();
 
-        if (inserted)
-        {
-            it->second = Creation::template create<Impl, Injection, Transient>(container);
-        }
-
-        return Cast::template cast<T>(
-            std::get<H>(it->second)
+        return Scoped<InnerT>(
+            /*CurrentContainer::wrap<
+                InnerT, 
+                Impl, 
+                Transient,
+                Creation, 
+                Injection, 
+                Cast
+            >(*ptr), */
+            ptr->template resolve<InnerT, Transient, true>(),
+            std::move(newContainer)
         );
     }
 };
+
 
 }

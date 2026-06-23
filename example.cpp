@@ -22,6 +22,18 @@ public:
 };
 
 //
+// Unregistered service
+//
+class ExternalService 
+{
+public:
+    void foo()
+    {
+
+    }
+};
+
+//
 // Request scoped service
 //
 class UserService 
@@ -31,6 +43,9 @@ class UserService
     //
     [[=Inject{}]]
     LoggingService* logger;
+
+    //[[=Inject{}]]
+    std::shared_ptr<ExternalService> extSvc;
 
 public:
     void createUser()
@@ -91,8 +106,11 @@ class WebApplication : public Application
     //
     // Scoped transient object. The scope is returned to the caller.
     //
+    [[=Inject{.transient=false}]]
+    std::function<Scoped<RequestHandler*>()> getRequestHandler;
+
     [[=Inject{.transient=true}]]
-    std::function<Scoped<std::unique_ptr<RequestHandler>>()> getRequestHandler;
+    std::function<Scoped<std::unique_ptr<RequestHandler>>()> getRequestHandler2;
 
 public:
     virtual ~WebApplication() {
@@ -103,7 +121,7 @@ public:
     {
         for (const auto& path : handlers_)
         {
-            auto scopedHandler = getRequestHandler();
+            auto scopedHandler = getRequestHandler2();
 
             scopedHandler->process();
         }
@@ -123,6 +141,11 @@ int main()
     //
     // Scoped registry configuration.
     // Enabled policy for parent objects resolution, such as logger.
+    // Fallback options are:
+    //  - TryParent: try to resolve in the parent
+    //  - TryParentOrCreate: try to resolve in parent or create if fail.
+    //  - Create: always create the object
+    //  - None: fail if can't resolve.
     //
     using RequestCfg = DefaultRegistryConfiguration::Extend<
         ResolutionPolicy<ResolutionFallback::TryParent>
@@ -156,7 +179,7 @@ int main()
     // Resolve root object and use.
     // Object lifetime is managed by underlying container.
     //
-    auto* app = root.resolve<Application*>();
+    auto* app = root.resolve<Application*, false>();
     app->handle("/test");
 
     static_cast<WebApplication*>(app)->process();

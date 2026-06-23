@@ -29,7 +29,7 @@ struct UnknownCreationPolicy
 
     template<typename T, typename Injection, bool Transient>
     static decltype(auto) create(auto& container)
-    {
+    { 
         if constexpr (Transient) // Parametrizzare
         {
             return detail::CreationHelper<refl_builder::Unique, Injection>

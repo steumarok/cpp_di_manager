@@ -52,28 +52,13 @@ public:
         return Resolution::template canResolve<T, Parent, Registry>();
     }
 
-    template<typename T>
-    constexpr auto parentResolve()
-        requires (!std::same_as<Parent, void>)
-    {
-        if constexpr (!std::same_as<Parent, void>)
-        {
-            return parent_->template resolve<T>();
-        }
-        else
-        {
-            static_assert([]{ return false; }(),
-                "No parent container");
-        }
-    }
-
-    template<typename T, bool Transient = false>
+    template<typename T, bool Transient, bool ForceCreation = false>
     constexpr T resolve() requires(canResolve<T>())
     {
         using RawT = resolved_type_t<T>;
 
         using Resolution = typename Registry::MainConfiguration::template policy<ResolutionPolicyTag>;
-        using Resolver = typename decltype(Resolution::template resolve<T, Transient, Parent, Registry>())::type;
+        using Resolver = typename decltype(Resolution::template resolve<T, Transient, Parent, Registry, ForceCreation>())::type;
 
         return Resolver::resolve(*this);
     }
@@ -94,6 +79,12 @@ public:
 
     auto operator->() { return value_.operator->(); }
     auto& operator*() { return *value_; }
+
+    Scoped(Scoped&&) noexcept = default;
+    Scoped& operator=(Scoped&&) noexcept = default;
+
+    Scoped(const Scoped&) = delete;
+    Scoped& operator=(const Scoped&) = delete;
 };
 
 }

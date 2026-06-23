@@ -13,65 +13,78 @@ class Scoped;
 
 struct CastPolicy : CastPolicyTag
 {
+        
     template<typename R, typename T>
-        requires std::same_as<R, Scoped<T>>
-    static T cast(T&& storage)
+    static R cast(T&& v)
     {
-        //static_assert(!std::same_as<R, R>);
-        return std::move(storage);
+        return std::move(v);
     }
 
-
-
-    template<typename R, typename T>
-        requires std::same_as<R, std::unique_ptr<T>>
-    static R cast(std::unique_ptr<T>&& storage)
+    template<SharedPtr R>
+    static R cast(std::any& v)
     {
-        return std::move(storage);
+        return std::any_cast<R>(v);
+    }
+
+    template<typename R, typename S = std::shared_ptr<std::remove_cvref_t<R>>>
+        requires (std::is_reference_v<R>)
+    static R cast(std::any& v)
+    {
+        return *std::any_cast<S>(v);
+    }
+
+    template<
+        typename R, 
+        typename S = std::shared_ptr<
+            std::remove_pointer_t<
+                std::remove_cvref_t<R>
+            >
+        >
+    > requires (std::is_pointer_v<R>)
+    static R cast(std::any& v)
+    {
+        return std::any_cast<S>(v).get();
     }
 
     template<typename R, typename T>
-        requires std::is_pointer_v<R>
-    static R cast(std::unique_ptr<T>& storage)
+        requires (std::is_reference_v<R>)
+    static R cast(T& v)
     {
-        return storage.get();
+        return v;
     }
 
-    // template<typename R, typename T>
-    //     requires (std::same_as<T, std::any> && std::is_reference_v<R>)
-    // static R cast(T& storage)
-    // {
-    //     using RawT = resolved_type_t<R>;
-    //     return *std::any_cast<std::shared_ptr<RawT>>(storage);
-    // }
-
-    // template<typename R, typename T>
-    //     requires (std::same_as<T, std::any> && std::is_pointer_v<R>)
-    // static R cast(T& storage)
-    // {
-    //     using RawT = resolved_type_t<R>;
-    //     return std::any_cast<std::shared_ptr<RawT>>(storage).get();
-    // }
-
     template<typename R, typename T>
-        requires (!std::is_pointer_v<R>)
-    static R& cast(std::unique_ptr<T>& storage)
+        requires (std::is_pointer_v<R>)
+    static R cast(T& v)
     {
-        return *storage;
+        return &v;
+    }
+    template<typename R, typename T>
+        requires (std::is_pointer_v<R>)
+    static R cast(std::unique_ptr<T>& v)
+    {
+        return v.get();
     }
 
-
-    // template<typename R, typename T>
-    //     requires std::is_pointer_v<R>
-    // static R cast(std::shared_ptr<T>& storage)
-    // {
-    //     return storage.get();
-    // }
+    template<typename R, typename T>
+        requires (std::is_reference_v<R>)
+    static R cast(std::unique_ptr<T>& v)
+    {
+        return *v;
+    }
 
     template<typename R, typename T>
-    static R cast(T&& storage)
+        requires (std::is_pointer_v<R>)
+    static R cast(std::shared_ptr<T>& v)
     {
-        return std::move(storage);
+        return v.get();
+    }
+
+    template<typename R, typename T>
+        requires (std::is_reference_v<R>)
+    static R cast(std::shared_ptr<T>& v)
+    {
+        return *v;
     }
 };
 

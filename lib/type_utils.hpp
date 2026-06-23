@@ -106,4 +106,14 @@ template<typename T>
 using resolved_type_t = typename unwrap<T>::type;
 
 
+template<typename T>
+concept SharedPtr =
+    requires {
+        typename T::element_type;
+    } &&
+    std::same_as<
+        T,
+        std::shared_ptr<typename T::element_type>
+    >;
+
 }
