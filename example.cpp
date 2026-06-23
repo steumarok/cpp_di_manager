@@ -186,10 +186,10 @@ int main()
     // Resolve root object and use.
     // Object lifetime is managed by underlying container.
     //
-    auto* app = root.resolve<Application*, false>();
-    app->handle("/test");
+    auto& app = root.resolve<Application&, false>();
+    app.handle("/test");
 
-    static_cast<WebApplication*>(app)->process();
+    static_cast<WebApplication&>(app).process();
 
     return 0;
 }
