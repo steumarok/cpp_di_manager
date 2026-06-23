@@ -6,18 +6,22 @@ using namespace di_manager;
 //
 // Global logging service
 //
-class LoggingService {
-
+class LoggingService 
+{
 public:
-    LoggingService() {
+    LoggingService() 
+    {
         std::cout << "LoggingService" <<std::endl;
     }
-    ~LoggingService() {
+
+    ~LoggingService() 
+    {
         std::cout << "~LoggingService" <<std::endl;
     }
 
-    void log(const std::string& msg) {
-        std::cout << msg <<std::endl;
+    void log(const std::string& msg) 
+    {
+        std::cout << msg << std::endl;
     }
 };
 
@@ -29,7 +33,7 @@ class ExternalService
 public:
     void foo()
     {
-
+        std::cout << "foo" << std::endl;
     }
 };
 
@@ -44,13 +48,15 @@ class UserService
     [[=Inject{}]]
     LoggingService* logger;
 
-    //[[=Inject{}]]
+    [[=Inject{}]]
     std::shared_ptr<ExternalService> extSvc;
 
 public:
     void createUser()
     {
         logger->log("Create User");
+
+        extSvc->foo();
     }
 };
 
@@ -113,7 +119,8 @@ class WebApplication : public Application
     std::function<Scoped<std::unique_ptr<RequestHandler>>()> getRequestHandler2;
 
 public:
-    virtual ~WebApplication() {
+    virtual ~WebApplication() 
+    {
         std::cout << "~WebApplication" <<std::endl;
     }
 
@@ -148,7 +155,7 @@ int main()
     //  - None: fail if can't resolve.
     //
     using RequestCfg = DefaultRegistryConfiguration::Extend<
-        ResolutionPolicy<ResolutionFallback::TryParent>
+        ResolutionPolicy<ResolutionFallback::TryParentOrCreate>
     >;
 
     //
