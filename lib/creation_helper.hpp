@@ -29,11 +29,45 @@ struct CustomBuilderOptions : refl_builder::Options<Type>
     }
 };
 
+template<typename T>
+consteval auto findConstructorUserArgs()
+{
+    static constexpr auto members = utils::getTypeMembers<T>();
+    template for (constexpr auto m : members)
+    {
+        if constexpr (std::meta::is_constructor(m))
+        {
+            constexpr auto parameters =
+                std::define_static_array(std::meta::parameters_of(m));
 
-template<typename Tag, typename Injection> 
+            std::vector<std::meta::info> userArgs;
+            for (auto p : parameters)
+            {
+                auto anns = std::meta::annotations_of_with_type(p, ^^Inject);
+
+                if (anns.empty())
+                {
+                    userArgs.push_back(p);
+                }
+            }
+
+            if (userArgs.size() > 0)
+            {
+                return m, std::define_static_array(userArgs);
+            }
+        }
+    }
+
+    return std::define_static_array(std::vector<std::meta::info>{});
+}
+
+template<typename Tag> 
 struct CreationHelper 
 {
     template<typename T>
+    using HolderType = typename refl_builder::BuilderPolicy<Tag, T>::HolderType;
+
+    template<typename T, typename Injection>
     static consteval void getInjectableMembers(std::vector<typename Injection::InjectableMember>& injectableMembers)
     {
         template for (constexpr auto m : utils::getTypeMembers<T>())
@@ -50,11 +84,11 @@ struct CreationHelper
         }
     }
 
-    template<typename T>
+    template<typename T, typename Injection>
     static consteval auto getInjectableMembers()
     {
         std::vector<typename Injection::InjectableMember> memberInfos;
-        getInjectableMembers<T>(memberInfos);
+        getInjectableMembers<T, Injection>(memberInfos);
 
         static constexpr auto bases =
             std::define_static_array(
@@ -65,11 +99,14 @@ struct CreationHelper
         template for (constexpr auto b : bases)
         {
             using Base = [:std::meta::type_of(b):];
-            getInjectableMembers<Base>(memberInfos);
+            getInjectableMembers<Base, Injection>(memberInfos);
         }
 
         return std::define_static_array(memberInfos);
     }
+
+
+    
 
 
     template<typename T>
@@ -83,14 +120,20 @@ struct CreationHelper
                 constexpr auto parameters =
                     std::define_static_array(std::meta::parameters_of(m));
 
+                std::vector<std::meta::info> injectableArgs;
                 for (auto p : parameters)
                 {
                     auto anns = std::meta::annotations_of_with_type(p, ^^Inject);
 
                     if (!anns.empty())
                     {
-                        return std::make_pair(m, parameters);
+                        injectableArgs.push_back(p);
                     }
+                }
+
+                if (injectableArgs.size() > 0)
+                {
+                    return std::make_pair(m, std::define_static_array(injectableArgs));            
                 }
             }
         }
@@ -101,8 +144,8 @@ struct CreationHelper
 
 
 
-    template<std::meta::info p>
-    static constexpr decltype(auto) inject(auto& container)  
+    template<std::meta::info p, typename Injection, typename Container>
+    static constexpr decltype(auto) inject(Container& container)  
     {
         static constexpr auto injectable = Injection::template findInjectable<p>();
 
@@ -113,7 +156,7 @@ struct CreationHelper
             }
 
             using I = [:std::meta::type_of(injectable->info):];
-            return Injection::template Injector<I, *injectable>::inject(
+            return Injection::template Injector<I, *injectable, Container>::inject(
                 container
             );
         }
@@ -123,8 +166,8 @@ struct CreationHelper
         }
     }
 
-    template<typename T>
-    static auto createBuilder(auto& container)
+    template<typename T, typename Injection, typename... Args>
+    static auto createBuilder(auto& container, Args&&... args)
     {
         static constexpr auto [ctor, params] = findConstructor<T>();
 
@@ -133,20 +176,23 @@ struct CreationHelper
             return [&]<size_t... I>(std::index_sequence<I...>)
             {
                 return refl_builder::makeBuilder<T, CustomBuilderOptions<Tag>>(
-                    inject<params[I]>(container)...
+                    std::forward<Args>(args)...,
+                    inject<params[I], Injection>(container)...
                 );
             }(std::make_index_sequence<params.size()>{});
         }
         else
         {
-            return refl_builder::makeBuilder<T, CustomBuilderOptions<Tag>>();
+            return refl_builder::makeBuilder<T, CustomBuilderOptions<Tag>>(
+                std::forward<Args>(args)...
+            );
         }
     }
 
-    template<typename T>
-    static auto create(auto& container)
+    template<typename T, typename Injection, typename Container, typename... Args>
+    static auto create(Container& container, Args&&... args)
     {
-        static constexpr auto injectables = getInjectableMembers<T>();
+        static constexpr auto injectables = getInjectableMembers<T, Injection>();
 
         auto resolveAndSet = [&]<std::size_t N>(auto& builder)
         {
@@ -157,7 +203,7 @@ struct CreationHelper
             constexpr std::size_t len = name.size();
             constexpr refl_builder::FixedString<len, 1> name_(name);
             return builder.template with<name_>(
-                Injection::template Injector<I, injectable>::inject(
+                Injection::template Injector<I, injectable, Container>::inject(
                     container
                 )
             );
@@ -180,7 +226,10 @@ struct CreationHelper
 
         return chain.template operator()<0>(
             chain, 
-            createBuilder<T>(container)
+            createBuilder<T, Injection>(
+                container,
+                std::forward<Args>(args)...
+            )
         );
     } 
 };

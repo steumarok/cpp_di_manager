@@ -1,4 +1,5 @@
 #include <vector>
+#include <memory>
 #include "lib/di_manager.hpp"
 
 using namespace di_manager;
@@ -60,6 +61,8 @@ public:
     }
 };
 
+class Application;
+
 class RequestHandler 
 {
     //
@@ -67,19 +70,24 @@ class RequestHandler
     //
     UserService& userService_;
 
+    Application& application_;
+
+    std::string path_;
+
 public:
     RequestHandler(
+        std::string path,
+        [[=Inject{}]] Application& application,
         [[=Inject{}]] UserService& userService
     )
-    : userService_(userService)
+    : path_(std::move(path))
+    , application_(application)
+    , userService_(userService)
     {        
     }
 
 public:
-    void process()
-    {
-       userService_.createUser();
-    }
+    void process();
 };
 
 
@@ -101,6 +109,11 @@ public:
         addHandler(path);
     }
 
+    std::string getName() const
+    {
+        return "App";
+    }
+
 protected:
     virtual void addHandler(const std::string& path) = 0;
 };
@@ -113,10 +126,13 @@ class WebApplication : public Application
     // Scoped transient object. The scope is returned to the caller.
     //
     [[=Inject{.transient=false}]]
-    std::function<Scoped<RequestHandler*>()> getRequestHandler;
+    std::function<Scoped<RequestHandler*>(std::string path)> getRequestHandler2;
 
     [[=Inject{.transient=true}]]
-    std::function<Scoped<std::unique_ptr<RequestHandler>>()> getRequestHandler2;
+    std::function<Scoped<std::unique_ptr<RequestHandler>>(std::string path)> createTransientRequestHandler;
+
+    [[=Inject{.transient=false}]]
+    Provider<RequestHandler*> getRequestHandler;
 
 public:
     virtual ~WebApplication() 
@@ -128,10 +144,12 @@ public:
     {
         for (const auto& path : handlers_)
         {
-            auto scopedHandler = getRequestHandler2();
+            auto scopedHandler = getRequestHandler(path);
 
             scopedHandler->process();
         }
+
+        //requestHandler->process();
     }
 
 protected:
@@ -141,6 +159,12 @@ protected:
     }
 };
 
+
+void RequestHandler::process()
+{
+    std::cout << "processing " << path_ << "in " << application_.getName() << std::endl;
+    userService_.createUser();
+}
 
 
 int main()

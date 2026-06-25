@@ -30,7 +30,7 @@ struct Registry
         std::monostate, 
         std::any,
         typename ConfigurationGroups<config_of_t<Registrations>, MainConfiguration>
-            ::template policy<CreationPolicyTag>::Holder<typename Registrations::Implementation>...
+            ::template policy<CreationPolicyTag>::HolderType<typename Registrations::Implementation>...
     >;
 
     template<typename... Ts>

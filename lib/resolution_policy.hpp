@@ -9,18 +9,20 @@ namespace di_manager
 template<typename T, bool Transient>
 struct ParentResolver
 {
-    template<typename Container>
-    static constexpr T resolve(Container& container)
+    template<typename Container, typename... Args>
+    static constexpr T resolve(Container& container, Args&&... args)
     {
-        return container.getParent()->template resolve<T, Transient>();
+        return container.getParent()->template resolve<T, Transient>(
+            std::forward<Args>(args)...
+        );
     }
 };
 
 template<typename T, bool Transient, typename R, typename Registry>
 struct RegisteredResolver
 {
-    template<typename Container>
-    static constexpr T resolve(Container& container)
+    template<typename Container, typename... Args>
+    static constexpr T resolve(Container& container, Args&&... args)
     {
         using Cfg = ConfigurationGroups<
             config_of_t<R>,
@@ -40,15 +42,18 @@ struct RegisteredResolver
             Creation,
             Injection,
             Cast
-        >(container);
+        >(
+            container, 
+            std::forward<Args>(args)...
+        );
     }
 };
 
 template<typename T, bool Transient, typename Registry>
 struct UnknownResolver
 {
-    template<typename Container>
-    static constexpr T resolve(Container& container)
+    template<typename Container, typename... Args>
+    static constexpr T resolve(Container& container, Args&&... args)
     {
         using Cfg = typename Registry::MainConfiguration;
 
@@ -65,7 +70,10 @@ struct UnknownResolver
             Creation,
             Injection,
             Cast
-        >(container);
+        >(
+            container, 
+            std::forward<Args>(args)...
+        );
     }
 };
 

@@ -28,20 +28,6 @@ struct Unique {};
 struct Shared {};
 struct Value {};
 
-template<typename Tag>
-struct holder;
-
-template<>
-struct holder<Unique>
-{
-    template<typename T>
-    using type = std::unique_ptr<T>;
-};
-
-template<typename Tag, typename T>
-using holder_t = typename holder<Tag>::type<T>;
-
-
 
 template<typename Tag, typename T>
 struct BuilderPolicy;
@@ -286,7 +272,7 @@ private:
 template<typename T, typename Options, auto WithFn, auto BitMask, uint64_t RequiredMask>
 struct WithMethod {
     Options::template HolderType<T>* holder_;
-    auto operator()(auto... args) {
+    auto operator()(auto&&... args) {
 
         WithFn(Options::template getReference<T>(*holder_), std::forward<decltype(args)>(args)...);
 
@@ -457,7 +443,7 @@ consteval std::vector<std::meta::info> defineBuilderMembers()
 
         if constexpr (m.type == MemberType::Method)
         {
-            auto builderMethod = [](ObjectType& obj, auto...args){
+            auto builderMethod = [](ObjectType& obj, auto&&... args){
                 constexpr auto memptr = &[: m.member :];  // workaround for private access
                 (obj.*memptr)(std::forward<decltype(args)>(args)...);
             };
@@ -472,7 +458,7 @@ consteval std::vector<std::meta::info> defineBuilderMembers()
         else if constexpr (m.type == MemberType::Data)
         {
             using Arg = typename[:std::meta::type_of(m.member):]; 
-            auto builderMethod = [](ObjectType& obj, Arg arg){
+            auto builderMethod = [](ObjectType& obj, Arg&& arg){
                 obj.[:m.member:] = std::move(arg);
             };
 

@@ -59,6 +59,7 @@ struct CastPolicy : CastPolicyTag
     {
         return &v;
     }
+    
     template<typename R, typename T>
         requires (std::is_pointer_v<R>)
     static R cast(std::unique_ptr<T>& v)

@@ -23,25 +23,32 @@ struct CurrentContainer
         typename Creation, 
         typename Injection, 
         typename Cast,
-        typename C
+        typename C,
+        typename... Args
     >
-    static T wrap(C& container)
+    static T wrap(C& container, Args&&... args)
     {
         if constexpr (Transient)
         {
             return Cast::template cast<T>(
-                Creation::template create<Impl, Injection, Transient>(container)
+                Creation::template create<Impl, Injection, Transient>(
+                    container, 
+                    std::forward<Args>(args)...
+                )
             );
         }
         else
         {
-            using H = typename Creation::Holder<Impl>;
+            using H = typename Creation::HolderType<Impl>;
 
             auto [it, inserted] = container.getStorageMap().try_emplace(typeid(Impl));
 
             if (inserted)
             {
-                it->second = Creation::template create<Impl, Injection, Transient>(container);
+                it->second = Creation::template create<Impl, Injection, Transient>(
+                    container,
+                    std::forward<Args>(args)...
+                );
             }
 
             return Cast::template cast<T>(
@@ -78,28 +85,19 @@ struct NewContainer
         typename Injection, 
         typename Cast,
         typename C,
-        typename InnerT = scoped_inner_t<T>
+        typename InnerT = scoped_inner_t<T>,
+        typename... Args
     >
-    static T wrap(C& container) //requires (std::same_as<T, Scoped<Impl>>)
+    static T wrap(C& container, Args&&... args)
     {
         auto newContainer = std::make_unique<Container<Registry, C>>(&container);
-        //static_assert(!std::same_as<Impl, Impl>);
-        //decltype(auto) object = Cast::template cast<T>(
-            
-        //);
 
         auto ptr = newContainer.get();
 
         return Scoped<InnerT>(
-            /*CurrentContainer::wrap<
-                InnerT, 
-                Impl, 
-                Transient,
-                Creation, 
-                Injection, 
-                Cast
-            >(*ptr), */
-            ptr->template resolve<InnerT, Transient, true>(),
+            ptr->template resolve<InnerT, Transient, true>(
+                std::forward<Args>(args)...
+            ),
             std::move(newContainer)
         );
     }
