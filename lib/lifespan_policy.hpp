@@ -6,7 +6,7 @@
 namespace di_manager
 {
 
-template<typename Registry, typename Parent>
+template<typename Registry, typename Context, typename Parent>
 class Container;
 
 template<typename T>
@@ -20,18 +20,20 @@ struct CurrentContainer
         typename T, 
         typename Impl, 
         bool Transient,
-        typename Creation, 
-        typename Injection, 
-        typename Cast,
+        typename Creation,
+        typename Configuration,
         typename C,
         typename... Args
     >
     static T wrap(C& container, Args&&... args)
     {
+        using Cast = Configuration::template policy<CastPolicyTag>;
+        //using Creation = Configuration::template policy<CreationPolicyTag>;
+
         if constexpr (Transient)
         {
             return Cast::template cast<T>(
-                Creation::template create<Impl, Injection, Transient>(
+                Creation::template create<Impl, Transient, Configuration>(
                     container, 
                     std::forward<Args>(args)...
                 )
@@ -45,7 +47,7 @@ struct CurrentContainer
 
             if (inserted)
             {
-                it->second = Creation::template create<Impl, Injection, Transient>(
+                it->second = Creation::template create<Impl, Transient, Configuration>(
                     container,
                     std::forward<Args>(args)...
                 );
@@ -81,16 +83,18 @@ struct NewContainer
         typename T, 
         typename Impl, 
         bool Transient,
-        typename Creation, 
-        typename Injection, 
-        typename Cast,
+        typename Creation,
+        typename Configuration,
         typename C,
         typename InnerT = scoped_inner_t<T>,
         typename... Args
     >
     static T wrap(C& container, Args&&... args)
     {
-        auto newContainer = std::make_unique<Container<Registry, C>>(&container);
+        auto newContainer = std::make_unique<Container<Registry, typename C::ContextType, C>>(
+            &container, 
+            container.getContext()
+        );
 
         auto ptr = newContainer.get();
 

@@ -13,11 +13,21 @@ public:
     virtual ~IContainer() = default;
 };
 
-template<typename Registry, typename Parent = void>
+struct NoContext {};
+
+template<typename Registry, typename Context = NoContext, typename Parent = void>
 class Container : public IContainer
 {
-    Parent* parent_;
+    using StoredContext =
+        std::conditional_t<
+            std::is_void_v<Parent>,
+            Context,
+            std::reference_wrapper<Context>
+        >;
+
+    Parent* parent_ = nullptr;
     std::unordered_map<std::type_index, typename Registry::StorageVariant> storageMap_;
+    StoredContext context_;
 
     static consteval void validate()
     {
@@ -31,14 +41,34 @@ class Container : public IContainer
     };
 
 public:
-    Container() : parent_(nullptr) { }
-    Container(Parent* parent) : parent_(parent) { }
+    Container(Context context = {}) requires std::is_void_v<Parent>
+    : context_(std::move(context))
+
+    { }
+
+    Container(Parent* parent, Context& context) requires (!std::is_void_v<Parent>)
+    : parent_(parent)
+    , context_(context) 
+    { }
 
     using RegistryType = Registry;
+    using ContextType = Context;
 
     Parent* getParent() const
     {
         return parent_;
+    }
+
+    Context& getContext() 
+    {
+        if constexpr (std::is_void_v<Parent>)
+        {
+            return context_;
+        }
+        else
+        {
+            return context_.get();
+        }
     }
 
     std::unordered_map<std::type_index, typename Registry::StorageVariant>& getStorageMap() 

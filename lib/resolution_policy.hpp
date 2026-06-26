@@ -29,19 +29,19 @@ struct RegisteredResolver
             typename Registry::MainConfiguration
         >;
         
-        using Cast = Cfg::template policy<CastPolicyTag>;
+        // using Cast = Cfg::template policy<CastPolicyTag>;
         using Creation = Cfg::template policy<CreationPolicyTag>;
-        using Injection = Cfg::template policy<InjectionPolicyTag>;
+        // using Injection = Cfg::template policy<InjectionPolicyTag>;
+        // using ConstructorArgsMapper = Cfg::template policy<ConstructorArgsMapperTag>;
         using Lifespan = Cfg::template policy<LifespanPolicyTag>;
         using Impl = typename R::Implementation;
-
+        
         return Lifespan::template wrap<
             T,
             Impl,
             Transient,
             Creation,
-            Injection,
-            Cast
+            Cfg
         >(
             container, 
             std::forward<Args>(args)...
@@ -57,9 +57,9 @@ struct UnknownResolver
     {
         using Cfg = typename Registry::MainConfiguration;
 
-        using Cast = Cfg::template policy<CastPolicyTag>;
+        // using Cast = Cfg::template policy<CastPolicyTag>;
         using Creation = Cfg::template policy<UnknownCreationPolicyTag>;
-        using Injection = Cfg::template policy<InjectionPolicyTag>;
+        // using Injection = Cfg::template policy<InjectionPolicyTag>;
         using Lifespan = Cfg::template policy<LifespanPolicyTag>;
         using Impl = resolved_type_t<T>;
 
@@ -68,8 +68,7 @@ struct UnknownResolver
             Impl,
             Transient,
             Creation,
-            Injection,
-            Cast
+            Cfg
         >(
             container, 
             std::forward<Args>(args)...

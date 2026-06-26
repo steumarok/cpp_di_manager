@@ -17,7 +17,8 @@ using DefaultRegistryConfiguration = Configuration<
     CastPolicy,
     InjectionPolicy,
     ResolutionPolicy<ResolutionFallback::None>,
-    CurrentContainer
+    CurrentContainer,
+    IdentityConstructorArgsMapper
 >;
 
 template<typename C = DefaultRegistryConfiguration, typename... Registrations>

@@ -4,6 +4,15 @@
 
 using namespace di_manager;
 
+struct AppConfig
+{
+};
+
+struct MyContext
+{
+    AppConfig appConfig;
+};
+
 //
 // Global logging service
 //
@@ -75,6 +84,9 @@ class RequestHandler
     std::string path_;
 
 public:
+    //
+    // The user params must be before the injections.
+    //
     RequestHandler(
         std::string path,
         [[=Inject{}]] Application& application,
@@ -126,15 +138,16 @@ class WebApplication : public Application
     // Scoped transient object. The scope is returned to the caller.
     //
     [[=Inject{.transient=false}]]
-    std::function<Scoped<RequestHandler*>(std::string path)> getRequestHandler2;
-
-    [[=Inject{.transient=true}]]
-    std::function<Scoped<std::unique_ptr<RequestHandler>>(std::string path)> createTransientRequestHandler;
-
-    [[=Inject{.transient=false}]]
     Provider<RequestHandler*> getRequestHandler;
 
 public:
+    //
+    // AppConfig is passed by ConstructionArgumentsMapper configuration option.
+    //
+    WebApplication(const AppConfig& cfg)
+    {        
+    }
+
     virtual ~WebApplication() 
     {
         std::cout << "~WebApplication" <<std::endl;
@@ -148,8 +161,6 @@ public:
 
             scopedHandler->process();
         }
-
-        //requestHandler->process();
     }
 
 protected:
@@ -165,7 +176,6 @@ void RequestHandler::process()
     std::cout << "processing " << path_ << "in " << application_.getName() << std::endl;
     userService_.createUser();
 }
-
 
 int main()
 {
@@ -197,20 +207,34 @@ int main()
         ResolutionPolicy<ResolutionFallback::None>
     >;
 
+    //
+    // Map a context member to the Application connstructor.
+    //
     using RootRegistry = Registry<RootCfg>
-        ::add<Application, WebApplication>
+        ::add<Application, WebApplication, Configuration<
+            ConstructionArgumentsMapper<
+                [](MyContext& ctx) { 
+                    return std::make_tuple(ctx.appConfig); 
+                }>
+            >
+        >
         ::add<RequestHandler, Configuration<NewContainer<RequestRegistry>>>
         ::add<LoggingService>;
 
-    using RootContainer = Container<RootRegistry>;
+    //
+    // Container runtime context.
+    //
+    MyContext ctx;
 
-    RootContainer root;
+    using RootContainer = Container<RootRegistry, MyContext>;
+
+    RootContainer root(std::move(ctx));
     
     //
     // Resolve root object and use.
     // Object lifetime is managed by underlying container.
     //
-    auto& app = root.resolve<Application&, false>();
+    auto& app = root.resolve<Application&>();
     app.handle("/test");
 
     static_cast<WebApplication&>(app).process();
