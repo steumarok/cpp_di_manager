@@ -225,11 +225,7 @@ int main()
     //
     using RootRegistry = Registry<RootCfg>
         ::add<Application, WebApplication, Configuration<
-                ConstructionArgumentsMapper<
-                    [](MyContext& ctx) { 
-                        return std::make_tuple(ctx.appConfig); 
-                    }
-                >
+                ConstructionArgumentsMapper<&MyContext::appConfig>
             >
         >
         ::add<RequestHandler, Configuration<

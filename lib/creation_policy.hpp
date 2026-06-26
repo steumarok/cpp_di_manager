@@ -17,20 +17,24 @@ struct IdentityConstructorArgsMapper
     }
 };
 
-template<auto mapper>
+template<auto Mapper>
 struct ConstructionArgumentsMapper
     : ConstructorArgsMapperTag
 {
     template<typename Context, typename... Args>
     static constexpr auto map(Context& ctx, Args&&... args)
     {
-        if constexpr (sizeof...(Args) == 0) 
+        if constexpr (sizeof...(Args) != 0) 
         {
-            return mapper(ctx);
+            return std::tuple<Args&&...>(std::forward<Args>(args)...);
+        }
+        else if constexpr (std::is_member_object_pointer_v<decltype(Mapper)>)
+        {
+            return std::forward_as_tuple(ctx.*Mapper);
         }
         else
         {
-            return std::tuple<Args&&...>(std::forward<Args>(args)...);
+            return Mapper(ctx);
         }
     }
 };
