@@ -18,7 +18,8 @@ using DefaultRegistryConfiguration = Configuration<
     InjectionPolicy,
     ResolutionPolicy<ResolutionFallback::None>,
     CurrentContainer,
-    IdentityConstructorArgsMapper
+    IdentityConstructorArgsMapper,
+    NoOpBuilderComposer
 >;
 
 template<typename C = DefaultRegistryConfiguration, typename... Registrations>

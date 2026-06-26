@@ -11,6 +11,7 @@ struct AppConfig
 struct MyContext
 {
     AppConfig appConfig;
+    long timeout = 1000;
 };
 
 //
@@ -82,6 +83,9 @@ class RequestHandler
     Application& application_;
 
     std::string path_;
+
+    [[=refl_builder::BuilderExpose{}]]
+    long timeout_;
 
 public:
     //
@@ -173,7 +177,7 @@ protected:
 
 void RequestHandler::process()
 {
-    std::cout << "processing " << path_ << "in " << application_.getName() << std::endl;
+    std::cout << "processing " << path_ << " in " << application_.getName() << " timeout: " << timeout_ << std::endl;
     userService_.createUser();
 }
 
@@ -196,7 +200,16 @@ int main()
     // Request classes registry.
     //
     using RequestRegistry = Registry<RequestCfg>
-        ::add<UserService>;
+        ::add<UserService>
+        ::add<RequestHandler, Configuration<
+                BuilderComposer<
+                    [](MyContext& ctx, auto& builder) {
+                        return builder
+                            .timeout_(ctx.timeout);
+                    }
+                >
+            >
+        >;
 
     //
     // Root registry. Fail if try to inject a unknown class.
@@ -212,13 +225,17 @@ int main()
     //
     using RootRegistry = Registry<RootCfg>
         ::add<Application, WebApplication, Configuration<
-            ConstructionArgumentsMapper<
-                [](MyContext& ctx) { 
-                    return std::make_tuple(ctx.appConfig); 
-                }>
+                ConstructionArgumentsMapper<
+                    [](MyContext& ctx) { 
+                        return std::make_tuple(ctx.appConfig); 
+                    }
+                >
             >
         >
-        ::add<RequestHandler, Configuration<NewContainer<RequestRegistry>>>
+        ::add<RequestHandler, Configuration<
+                NewContainer<RequestRegistry>
+            >
+        >
         ::add<LoggingService>;
 
     //

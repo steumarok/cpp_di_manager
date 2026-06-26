@@ -13,6 +13,7 @@ struct ResolutionPolicyTag {};
 struct InjectionPolicyTag {};
 struct LifespanPolicyTag {};
 struct ConstructorArgsMapperTag {};
+struct BuilderComposerTag {};
 
 // Annotations
 struct Inject 

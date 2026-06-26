@@ -236,6 +236,8 @@ private:
                 return m;
             }
         }
+
+        //static_assert([]{ return false; }(), sv);
     }
 
     constexpr void setHolder(Options::template HolderType<T> holder)
@@ -272,9 +274,11 @@ private:
 template<typename T, typename Options, auto WithFn, auto BitMask, uint64_t RequiredMask>
 struct WithMethod {
     Options::template HolderType<T>* holder_;
-    auto operator()(auto&&... args) {
 
-        WithFn(Options::template getReference<T>(*holder_), std::forward<decltype(args)>(args)...);
+    template<typename... Args>
+    auto operator()(Args&&... args) {
+
+        WithFn(Options::template getReference<T>(*holder_), std::forward<Args>(args)...);
 
         return createBuilder<T, Options, RequiredMask & ~BitMask>(std::move(*holder_));
     }
@@ -458,8 +462,8 @@ consteval std::vector<std::meta::info> defineBuilderMembers()
         else if constexpr (m.type == MemberType::Data)
         {
             using Arg = typename[:std::meta::type_of(m.member):]; 
-            auto builderMethod = [](ObjectType& obj, Arg&& arg){
-                obj.[:m.member:] = std::move(arg);
+            auto builderMethod = [](ObjectType& obj, auto&& arg){
+                obj.[:m.member:] = std::forward<decltype(arg)>(arg);//std::move(arg);
             };
 
             builderMembers.push_back(

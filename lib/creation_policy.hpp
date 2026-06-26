@@ -17,7 +17,6 @@ struct IdentityConstructorArgsMapper
     }
 };
 
-
 template<auto mapper>
 struct ConstructionArgumentsMapper
     : ConstructorArgsMapperTag
@@ -36,6 +35,18 @@ struct ConstructionArgumentsMapper
     }
 };
 
+template<auto composer>
+struct BuilderComposer
+    : BuilderComposerTag
+{
+    template<typename Context>
+    static constexpr decltype(auto) compose(Context& ctx, auto& builder)
+    {
+        return composer(ctx, builder);
+    }
+};
+
+using NoOpBuilderComposer = BuilderComposer<[](auto& ctx, auto& builder) -> decltype(auto) { return builder; }>;
 
 template<typename Tag> 
 struct CreationPolicy
@@ -49,12 +60,13 @@ struct CreationPolicy
     {
         using Injection = Configuration::template policy<InjectionPolicyTag>;
         using ConstructorArgsMapper = Configuration::template policy<ConstructorArgsMapperTag>;
+        using BuilderComposer = Configuration::template policy<BuilderComposerTag>;
 
         return std::apply(
             [&](auto&&... unpacked)
             {
                 return detail::CreationHelper<Tag>
-                    ::template create<T, Injection>(
+                    ::template create<T, Injection, BuilderComposer>(
                         container,
                         std::forward<decltype(unpacked)>(unpacked)...
                     );
@@ -75,6 +87,7 @@ struct UnknownCreationPolicy
     { 
         using Injection = Configuration::template policy<InjectionPolicyTag>;
         using ConstructorArgsMapper = Configuration::template policy<ConstructorArgsMapperTag>;
+        using BuilderComposer = Configuration::template policy<BuilderComposerTag>;
 
         return std::apply(
             [&](auto&&... unpacked)
@@ -82,7 +95,7 @@ struct UnknownCreationPolicy
                 if constexpr (Transient) // Parametrizzare
                 {
                     return detail::CreationHelper<refl_builder::Unique>
-                        ::template create<T, Injection>(
+                        ::template create<T, Injection, BuilderComposer>(
                             container,
                             std::forward<decltype(unpacked)>(unpacked)...
                         );
@@ -90,7 +103,7 @@ struct UnknownCreationPolicy
                 else
                 {
                     return detail::CreationHelper<refl_builder::Shared>
-                        ::template create<T, Injection>(
+                        ::template create<T, Injection, BuilderComposer>(
                             container,
                             std::forward<decltype(unpacked)>(unpacked)...
                         );
